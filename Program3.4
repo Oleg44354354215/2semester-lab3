@@ -1,0 +1,87 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace WordFrequencyReport
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Шлях до текстих файлів
+            string folderPath = @"C:\TextFiles\";
+
+            // Функція токенізації тексту
+            Func<string, IEnumerable<string>> tokenize = (text) =>
+            {
+                return text.Split(new[] { ' ', '.', ',', '!', '?', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            };
+
+            // Функція підрахунку частоти слів
+            Func<IEnumerable<string>, IDictionary<string, int>> countWords = (words) =>
+            {
+                var dictionary = new Dictionary<string, int>();
+
+                foreach (var word in words)
+                {
+                    if (dictionary.ContainsKey(word))
+                    {
+                        dictionary[word]++;
+                    }
+                    else
+                    {
+                        dictionary[word] = 1;
+                    }
+                }
+
+                return dictionary;
+            };
+
+            // Функція відображення статистики
+            Action<IDictionary<string, int>> displayReport = (report) =>
+            {
+                foreach (var item in report.OrderByDescending(x => x.Value))
+                {
+                    Console.WriteLine("{0}: {1}", item.Key, item.Value);
+                }
+            };
+
+            // Обхід файлів та обчислення статистики
+            var files = Directory.GetFiles(folderPath, "*.txt");
+            var wordCounts = new List<IDictionary<string, int>>();
+
+            foreach (var file in files)
+            {
+                var text = File.ReadAllText(file);
+                var words = tokenize(text);
+                var wordCount = countWords(words);
+
+                wordCounts.Add(wordCount);
+            }
+
+            // Об'єднання статистики з усіх файлів
+            var totalWordCount = wordCounts.Aggregate((x, y) =>
+            {
+                foreach (var item in y)
+                {
+                    if (x.ContainsKey(item.Key))
+                    {
+                        x[item.Key] += item.Value;
+                    }
+                    else
+                    {
+                        x[item.Key] = item.Value;
+                    }
+                }
+
+                return x;
+            });
+
+            // Відображення звіту
+            displayReport(totalWordCount);
+
+            Console.ReadKey();
+        }
+    }
+}

@@ -1,0 +1,123 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+
+namespace CSVTransactionParser
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string filePath = "transactions.csv";
+            string dateFormat = "dd.MM.yyyy";
+
+            Func<string, DateTime> dateConverter = (string dateString) =>
+            {
+                return ConvertStringToDate(dateString, dateFormat);
+            };
+
+            Func<string, double> amountConverter = (string amountString) =>
+            {
+                return ConvertStringToDouble(amountString);
+            };
+
+            Action<DateTime, double> transactionHandler = (DateTime date, double amount) =>
+            {
+                Console.WriteLine("{0}: {1}", date.ToShortDateString(), amount);
+            };
+
+            ProcessCSVTransactions(filePath, dateConverter, amountConverter, transactionHandler);
+
+            Console.ReadKey();
+        }
+
+        public static DateTime ConvertStringToDate(string dateString, string dateFormat)
+        {
+            return DateTime.ParseExact(dateString, dateFormat, CultureInfo.InvariantCulture);
+        }
+
+        public static double ConvertStringToDouble(string doubleString)
+        {
+            return double.Parse(doubleString, CultureInfo.InvariantCulture);
+        }
+
+        public static void ProcessCSVTransactions(string filePath, Func<string, DateTime> dateConverter,
+            Func<string, double> amountConverter, Action<DateTime, double> transactionHandler)
+        {
+            int batchSize = 10;
+
+            List<Transaction> transactions = new List<Transaction>();
+
+            using (StreamReader reader = new StreamReader(filePath))
+            {
+                string line;
+
+                while ((line = reader.ReadLine()) != null)
+                {
+                    string[] parts = line.Split(',');
+
+                    DateTime date = dateConverter(parts[0]);
+                    double amount = amountConverter(parts[1]);
+
+                    transactions.Add(new Transaction(date, amount));
+
+                    if (transactions.Count % batchSize == 0)
+                    {
+                        var dailyTransactions = transactions
+                            .GroupBy(t => t.Date.Date)
+                            .Select(g => new { Date = g.Key, Amount = g.Sum(t => t.Amount) });
+
+                        foreach (var dailyTransaction in dailyTransactions)
+                        {
+                            transactionHandler(dailyTransaction.Date, dailyTransaction.Amount);
+                        }
+
+                        WriteTransactionsToFile(transactions, filePath, dateFormat);
+
+                        transactions.Clear();
+                    }
+                }
+            }
+
+            if (transactions.Count > 0)
+            {
+                var dailyTransactions = transactions
+                    .GroupBy(t => t.Date.Date)
+                    .Select(g => new { Date = g.Key, Amount = g.Sum(t => t.Amount) });
+
+                foreach (var dailyTransaction in dailyTransactions)
+                {
+                    transactionHandler(dailyTransaction.Date, dailyTransaction.Amount);
+                }
+
+                WriteTransactionsToFile(transactions, filePath, dateFormat);
+            }
+        }
+
+        public static void WriteTransactionsToFile(List<Transaction> transactions, string filePath, string dateFormat)
+        {
+            using (StreamWriter writer = new StreamWriter(filePath, true))
+            {
+                foreach (var transaction in transactions)
+                {
+                    string line = String.Format("{0},{1}", transaction.Date.ToString(dateFormat), transaction.Amount);
+                    writer.WriteLine(line);
+                }
+            }
+        }
+
+        public class Transaction
+        {
+            public DateTime Date { get; set; }
+            public double Amount { get; set; }
+
+            public Transaction(DateTime date, double amount)
+            {
+                Date = date;
+                Amount = amount;
+            }
+        }
+    }
+}

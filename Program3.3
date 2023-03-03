@@ -1,0 +1,48 @@
+﻿using System;
+using System.Drawing;
+using System.IO;
+
+namespace ImageProcessing
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Завантаження зображень з папки "Images"
+            string[] imagePaths = Directory.GetFiles("Images");
+
+            // Делегат типу Func<Bitmap, Bitmap> для операції обрізки зображення
+            Func<Bitmap, Bitmap> cropImage = (image) =>
+            {
+                Rectangle cropArea = new Rectangle(0, 0, image.Width / 2, image.Height);
+                return image.Clone(cropArea, image.PixelFormat);
+            };
+
+            // Делегат типу Func<Bitmap, Bitmap> для операції зміни розміру зображення
+            Func<Bitmap, Bitmap> resizeImage = (image) =>
+            {
+                return new Bitmap(image, new Size(image.Width / 2, image.Height / 2));
+            };
+
+            // Делегат типу Action<Bitmap> для відображення обробленого зображення
+            Action<Bitmap> displayImage = (image) =>
+            {
+                image.Save("ProcessedImages/" + Path.GetFileNameWithoutExtension(image.FileName) + "_processed" + image.RawFormat.ToString());
+                Console.WriteLine("Оброблене зображення: " + Path.GetFileName(image.FileName));
+            };
+
+            // Цикл обробки зображень
+            foreach (string imagePath in imagePaths)
+            {
+                using (Bitmap originalImage = new Bitmap(imagePath))
+                {
+                    Bitmap processedImage = cropImage(originalImage);  // Обрізка зображення
+                    processedImage = resizeImage(processedImage);     // Зміна розміру зображення
+                    displayImage(processedImage);                      // Відображення обробленого зображення
+                }
+            }
+
+            Console.ReadLine();
+        }
+    }
+}
